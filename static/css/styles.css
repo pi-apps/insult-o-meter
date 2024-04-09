@@ -1,0 +1,30 @@
+body {
+	margin-top:100px;
+}
+
+#quote {
+	margin-top:.25em;
+	font-family:Garamond, serif;
+	font-size:2em;
+}
+
+#instructions {
+	margin-top:4em;	
+}
+
+.small {
+	font-size:.8em;
+}
+
+.hidden {
+	visibility: hidden;
+}
+
+.modal-content {
+	margin-top:100px;
+}
+
+#username {
+	border-bottom: 1px dashed; navy;
+	font-weight:800;
+}

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Insult-Generator</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="static/css/styles.css" rel="stylesheet" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script> Pi.init({ version: "2.0", sandbox: true }) </script>
+    <script> 
+        // Authenticate the user, and get permission to request payments from them (added 'username' to provide username to API):
+        const scopes = ['payments','username'];
+        var accessToken
+        var username
+        
+
+        // Read more about this callback in the SDK reference:
+        function onIncompletePaymentFound(payment) { 
+            paymentId = payment.identifier
+            txid = payment.transaction.txid
+            $.post('/payment/complete',
+                    {
+                        paymentId: paymentId,
+                        txid: txid,
+                        debug: 'cancel'
+                    }
+                )
+        };
+
+        Pi.authenticate(scopes, onIncompletePaymentFound).then(function(auth) {
+          accessToken = auth.accessToken
+          username = auth.user.username
+          $('#username').text(username); // writes username to the page
+        }).catch(function(error) {
+          console.error(error);
+        });
+    </script>
+    <script>
+        // we're doing payments
+        const Pi = window.Pi;
+        // main payments function
+        function createPayment() {
+            const paymentData = {
+                amount: .01,
+                memo: "This buys you three more insults! What a deal!!!",
+                metadata: { insultid: 123456 }
+            };
+           // the SDK does all this like magic
+            const paymentCallbacks = {
+                onReadyForServerApproval: (paymentDTO) => {
+                        paymentId = paymentDTO
+                        $.post('/payment/approve', {
+                        paymentId: paymentId,
+                        accessToken: accessToken
+                    }
+                    )
+                },
+                onReadyForServerCompletion: (paymentDTO,txid) => {
+                    paymentId = paymentDTO
+                    txid = txid
+                    $.post('/payment/complete', 
+                            {
+                                paymentId: paymentId,
+                                txid: txid,
+                                debug: 'complete'
+                            }
+                        )
+                },
+                onCancel: (paymentDTO) => {
+                    paymentId = paymentDTO.identifier
+                    $.post('/payment/complete',
+                            {
+                                paymentId: paymentId,
+                               // txid: txid,
+                                debug: 'cancel'
+                            }
+                        )
+                },
+                onError: (paymentDTO) => {
+                   console.log('There was an error ', paymentDTO)
+                    paymentId = paymentDTO.identifier
+                    $.post('/payment/error',
+                            {
+                                paymentDTO: paymentDTO,
+                                paymentId: paymentId,
+                                //txid: txid,
+                                debug: 'error'
+                            }
+                        )
+                },
+                onIncompletePaymentFound: function(paymentDTO)
+                { 
+                    paymentId = paymentDTO.identifier
+                    console.log('onIncompletePaymentFound', paymentId)
+                    $.post('/payment/complete',
+                            {
+                                paymentId: paymentId,
+                                txid: paymentDTO.transaction.txid
+                            }
+                        )
+                 }
+            };
+
+            Pi.createPayment(paymentData, paymentCallbacks);
+        }
+    </script>
+    <script type="text/javascript">
+        function fn_copy(data)
+    {
+        var temp = document.getElementById("insult").value;
+        if(temp != "")
+    {
+        document.getElementById("target_"+data).value = temp;
+    }
+    else
+        alert("Text is Empty");
+    }
+</script>
+</head>
+<body>
+
+
+
+    <div class="container mt-5">
+        <div class="text-center">
+            <h1>The Insult Generator</h1>
+            <p><small>All in good fun. Use with care, <span id="username"></span>.</small></p>
+            <a href="#" id="newQuoteBtn" class="btn btn-primary mt-3">Gimme An Insult</a>
+                <div id="instructions" class="small hidden">Here you go. For efficient trolling, this insult has been copied to your clipboard:</div>
+                <div id="quote"></div>
+                <div id="quotecite" class="small"></div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade"  data-backdrop='static' id="myModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    For four more insults, please pay .001 Pi. What a deal!<br />
+                    <a href="#" id="resetBtn" class="btn btn-primary mt-3" onClick='javascript:createPayment();'>Pay</a>
+                    <a href="#" id="resetBtn" data-dismiss="modal" class="btn btn-secondary mt-3" onClick='javascript:window.open("/back", "_self")'>Never Mind</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>    
+
+
+        let count = 0;
+
+        $('#newQuoteBtn').click(function() {
+            if (count < 4) {
+                $.get('/get_quote', function(data) {
+                    $('#instructions').removeClass('hidden')
+                    $('#quote').text(data);
+                    $('#quotecite').text('Insult courtesy of ' + username + '.')
+                    thisinsult = (data + 'Insult courtesy of ' + username + '.')
+                    navigator.clipboard.writeText(thisinsult)
+                    count++;
+                    if (count == 4) {
+                        $('#newQuoteBtn').prop('disabled', true);
+                        $('#myModal').modal('show');
+                    }
+                });
+            }
+        });
+
+        $('#resetBtn').click(function() {
+            count = 0;
+            $('#quote').text('');
+            $('#newQuoteBtn').prop('disabled', false);
+            $('#myModal').modal('hide');
+        });
+    </script>
+</body>
+</html>
